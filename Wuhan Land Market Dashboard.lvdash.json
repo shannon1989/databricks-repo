@@ -1,0 +1,3064 @@
+{
+  "datasets": [
+    {
+      "name": "dataset1",
+      "displayName": "transaction_detail",
+      "queryLines": [
+        "SELECT * FROM land_market_dev.`30_datamart`.transaction_detail where land_uid not like 'P2020%' order by land_uid desc;"
+      ]
+    },
+    {
+      "name": "4a0d3c7d",
+      "displayName": "land_market_analysis",
+      "queryLines": [
+        "select date_format(td.lease_date, 'yyyy') as lease_year,\r\n",
+        "       date_format(td.lease_date, 'MM') as lease_month,\r\n",
+        "       'Q' || date_format(td.lease_date, 'q') as lease_quarter,\r\n",
+        "       td.land_area_sqm,\r\n",
+        "       nvl(td.building_area_sqm, td.land_area_sqm * 2) as building_area_sqm,\r\n",
+        "       dlu.land_use_categories,\r\n",
+        "       td.lease_price_paid / 10000 as lease_price_paid_10k,\r\n",
+        "       nvl(td.building_area_sqm, td.land_area_sqm * 2) / td.land_area_sqm as building_plot_ratio,\r\n",
+        "       td.lease_price_paid / td.land_area_sqm as price_per_sqm,\r\n",
+        "       case when dlu.land_use_categories like '%住宅类%' then 'customer' \r\n",
+        "            when dlu.land_use_categories like '%商业类%' then 'business' \r\n",
+        "            else 'industrial' end as land_type,\r\n",
+        "       land_owner\r\n",
+        " from land_market_dev.30_datamart.transaction_detail as td\r\n",
+        " left join land_market_dev.`30_datamart`.dim_land_use as dlu on td.land_uid = dlu.land_uid\r\n",
+        " where date_format(td.lease_date, 'yyyy') > 2020"
+      ]
+    },
+    {
+      "name": "e138ae07",
+      "displayName": "land_price_per_sqm",
+      "queryLines": [
+        "with min_price_per_sql as (\r\n",
+        "SELECT *, lease_price_paid / land_area_sqm as price_per_sqm, (lease_price_paid -  lease_price) / lease_price as premium_rate, 'min_price_per_sqm' as price_per_sql_category, building_area_sqm / land_area_sqm as plot_ratio, substring(land_location, 1, instr(land_location, '区')) as district\r\n",
+        "FROM land_market_dev.`30_datamart`.transaction_detail \r\n",
+        "where land_uid not like 'P2020%' order by lease_price_paid / land_area_sqm \r\n",
+        "limit 10),\r\n",
+        "\r\n",
+        "max_price_per_sql as (\r\n",
+        "SELECT *, lease_price_paid / land_area_sqm as price_per_sqm, (lease_price_paid -  lease_price) / lease_price as premium_rate, 'max_price_per_sqm' as price_per_sql_category, building_area_sqm / land_area_sqm as plot_ratio, substring(land_location, 1, instr(land_location, '区')) as district\r\n",
+        "FROM land_market_dev.`30_datamart`.transaction_detail \r\n",
+        "where land_uid not like 'P2020%' order by lease_price_paid / land_area_sqm desc\r\n",
+        "limit 10)\r\n",
+        "\r\n",
+        "SELECT * FROM min_price_per_sql\r\n",
+        "union\r\n",
+        "SELECT * FROM max_price_per_sql"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "page1",
+      "displayName": "Overview",
+      "layout": [
+        {
+          "widget": {
+            "name": "8afb4bff",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "lease_quarter",
+                      "expression": "`lease_quarter`"
+                    },
+                    {
+                      "name": "lease_year",
+                      "expression": "`lease_year`"
+                    },
+                    {
+                      "name": "sum(land_area_sqm)",
+                      "expression": "SUM(`land_area_sqm`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "lease_year",
+                  "axis": {
+                    "hideTitle": true,
+                    "labelAngle": 0
+                  },
+                  "displayName": "土地成交年份",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(land_area_sqm)",
+                  "displayName": "土地成交（平方米）",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "lease_quarter",
+                  "legend": {
+                    "position": "bottom",
+                    "hideTitle": true
+                  },
+                  "displayName": "季度",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "natural-order"
+                    }
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "title": "Trend of land_area_sqm split by quater",
+                "showTitle": true,
+                "showDescription": false
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 9,
+            "width": 2,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "e2b115e7",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "land_type",
+                      "expression": "`land_type`"
+                    },
+                    {
+                      "name": "lease_year",
+                      "expression": "`lease_year`"
+                    },
+                    {
+                      "name": "sum(land_area_sqm)",
+                      "expression": "SUM(`land_area_sqm`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "lease_year",
+                  "axis": {
+                    "labelAngle": 0,
+                    "hideLabels": false,
+                    "hideTitle": true
+                  },
+                  "displayName": "土地成交年份",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(land_area_sqm)",
+                  "displayName": "土地成交（平方米）",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "land_type",
+                  "legend": {
+                    "position": "bottom",
+                    "hideTitle": true
+                  },
+                  "displayName": "土地性质分类",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "natural-order"
+                    }
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "title": "Trend of land_area_sqm split by land type",
+                "showTitle": true,
+                "showDescription": false
+              },
+              "mark": {
+                "layout": "percent-stack"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 9,
+            "width": 2,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "4a32a4ad",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "lease_year",
+                      "expression": "`lease_year`"
+                    },
+                    {
+                      "name": "sum(lease_price_paid_10k)",
+                      "expression": "SUM(`lease_price_paid_10k`)"
+                    },
+                    {
+                      "name": "sum(land_area_sqm)",
+                      "expression": "SUM(`land_area_sqm`)"
+                    },
+                    {
+                      "name": "sum(building_area_sqm)",
+                      "expression": "SUM(`building_area_sqm`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`land_type` IN ('customer')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "area",
+              "encodings": {
+                "x": {
+                  "fieldName": "lease_year",
+                  "axis": {
+                    "labelAngle": 0,
+                    "hideLabels": false,
+                    "hideTitle": true
+                  },
+                  "displayName": "土地成交年份",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fields": [
+                    {
+                      "fieldName": "sum(lease_price_paid_10k)",
+                      "displayName": "成交额（万）"
+                    },
+                    {
+                      "fieldName": "sum(land_area_sqm)",
+                      "displayName": "土地成交面积（m²）"
+                    },
+                    {
+                      "fieldName": "sum(building_area_sqm)",
+                      "displayName": "建筑成交面积（m²）"
+                    }
+                  ],
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "legend": {
+                    "hide": false,
+                    "hideTitle": true,
+                    "title": "Legend",
+                    "position": "bottom"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "title": "住宅 - Trend of land_area_sqm vs land_lease",
+                "showTitle": true,
+                "showDescription": false,
+                "headerAlignment": "center"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 1,
+            "width": 2,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "b60997e4",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "land_use_categories",
+                      "expression": "`land_use_categories`"
+                    },
+                    {
+                      "name": "lease_year",
+                      "expression": "`lease_year`"
+                    },
+                    {
+                      "name": "median(price_per_sqm)",
+                      "expression": "MEDIAN(`price_per_sqm`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`land_type` IN ('customer')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "lease_year",
+                  "axis": {
+                    "hideTitle": true
+                  },
+                  "displayName": "土地成交年份",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "median(price_per_sqm)",
+                  "axis": {
+                    "hideGrid": false
+                  },
+                  "displayName": "每平米平均单价（元）",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "land_use_categories",
+                  "legend": {
+                    "position": "bottom"
+                  },
+                  "displayName": "土地性质分类",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Consumer Land"
+              },
+              "mark": {
+                "layout": "stack"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 25,
+            "width": 2,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "62a1ef1c",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "land_use_categories",
+                      "expression": "`land_use_categories`"
+                    },
+                    {
+                      "name": "lease_year",
+                      "expression": "`lease_year`"
+                    },
+                    {
+                      "name": "median(price_per_sqm)",
+                      "expression": "MEDIAN(`price_per_sqm`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`land_type` IN ('business')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "lease_year",
+                  "axis": {
+                    "hideTitle": true
+                  },
+                  "displayName": "土地成交年份",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "median(price_per_sqm)",
+                  "displayName": "每平米平均单价（元）",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "land_use_categories",
+                  "legend": {
+                    "position": "bottom"
+                  },
+                  "displayName": "土地性质分类",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Business Land"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 25,
+            "width": 2,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "c3ac353f",
+            "multilineTextboxSpec": {
+              "lines": [
+                "<span style=\"text-align:center;display:block;\"><span style=\"font-size: 18px;\">**住宅，工业，商业，公共服务类的每平米土地面积单价（元）**</span></span>"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 24,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "fdbc3808",
+            "multilineTextboxSpec": {
+              "lines": [
+                "<span style=\"text-align:center;display:block\"><span style=\"font-size:18px\">**土地成交额（万）与土地成交面积（**</span>m²<span style=\"font-size:18px\">**）**</span></span>"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "7634b4e9",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "e138ae07",
+                  "fields": [
+                    {
+                      "name": "land_number",
+                      "expression": "`land_number`"
+                    },
+                    {
+                      "name": "district",
+                      "expression": "`district`"
+                    },
+                    {
+                      "name": "land_area_sqm",
+                      "expression": "`land_area_sqm`"
+                    },
+                    {
+                      "name": "building_area_sqm",
+                      "expression": "`building_area_sqm`"
+                    },
+                    {
+                      "name": "plot_ratio",
+                      "expression": "`plot_ratio`"
+                    },
+                    {
+                      "name": "land_use",
+                      "expression": "`land_use`"
+                    },
+                    {
+                      "name": "lease_price_paid",
+                      "expression": "`lease_price_paid`"
+                    },
+                    {
+                      "name": "price_per_sqm",
+                      "expression": "`price_per_sqm`"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`price_per_sql_category` IN ('max_price_per_sqm')"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "land_number",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 0,
+                    "title": "land_number",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "district",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 5,
+                    "title": "district",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "land_area_sqm",
+                    "numberFormat": "0.00",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 7,
+                    "title": "land_area_sqm",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "building_area_sqm",
+                    "numberFormat": "0.00",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 8,
+                    "title": "building_area_sqm",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "plot_ratio",
+                    "numberFormat": "0.00",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 9,
+                    "title": "plot_ratio",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "land_use",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 12,
+                    "title": "land_use",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "lease_price_paid",
+                    "numberFormat": ",",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 16,
+                    "title": "lease_price_paid",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "cellFormat": {
+                      "default": {
+                        "foregroundColor": null
+                      },
+                      "rules": [
+                        {
+                          "if": {
+                            "column": "lease_price_paid",
+                            "fn": ">=",
+                            "literal": "1000000000"
+                          },
+                          "value": {
+                            "foregroundColor": {
+                              "themeColorType": "visualizationColors",
+                              "position": 1
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "fieldName": "price_per_sqm",
+                    "numberFormat": "0,00",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 19,
+                    "title": "price_per_sqm",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "cellFormat": {
+                      "default": {
+                        "foregroundColor": null
+                      },
+                      "rules": [
+                        {
+                          "if": {
+                            "column": "price_per_sqm",
+                            "fn": ">=",
+                            "literal": "100000"
+                          },
+                          "value": {
+                            "foregroundColor": {
+                              "themeColorType": "visualizationColors",
+                              "position": 1
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "invisibleColumns": [
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "land_uid",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 1,
+                  "title": "land_uid",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "transaction_id",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 2,
+                  "title": "transaction_id",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "title",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 3,
+                  "title": "title",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "land_owner",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 4,
+                  "title": "land_owner",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "land_location",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 6,
+                  "title": "land_location",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "publish_time",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 10,
+                  "title": "publish_time",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "land_area_hectare",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 11,
+                  "title": "land_area_hectare",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "land_plot_ratio_desc",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 13,
+                  "title": "land_plot_ratio_desc",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "lease_type",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 14,
+                  "title": "lease_type",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "lease_price",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 15,
+                  "title": "lease_price",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "dateTimeFormat": "DD/MM/YYYY",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "lease_date",
+                  "type": "date",
+                  "displayAs": "datetime",
+                  "order": 17,
+                  "title": "lease_date",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "url",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 18,
+                  "title": "url",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "premium_rate",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 20,
+                  "title": "premium_rate",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "price_per_sql_category",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 21,
+                  "title": "price_per_sql_category",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                }
+              ],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false,
+              "frame": {
+                "showTitle": true,
+                "title": "Highest Price Per Sqm"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 34,
+            "width": 4,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "1f888c28",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "e138ae07",
+                  "fields": [
+                    {
+                      "name": "land_uid",
+                      "expression": "`land_uid`"
+                    },
+                    {
+                      "name": "district",
+                      "expression": "`district`"
+                    },
+                    {
+                      "name": "land_area_sqm",
+                      "expression": "`land_area_sqm`"
+                    },
+                    {
+                      "name": "land_use",
+                      "expression": "`land_use`"
+                    },
+                    {
+                      "name": "price_per_sqm",
+                      "expression": "`price_per_sqm`"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`price_per_sql_category` IN ('min_price_per_sqm')"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 1,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "land_uid",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 1,
+                    "title": "land_uid",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "district",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 5,
+                    "title": "district",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "land_area_sqm",
+                    "numberFormat": "0.00",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 7,
+                    "title": "land_area_sqm",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "land_use",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "string",
+                    "displayAs": "string",
+                    "visible": true,
+                    "order": 12,
+                    "title": "land_use",
+                    "allowSearch": false,
+                    "alignContent": "left",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false
+                  },
+                  {
+                    "fieldName": "price_per_sqm",
+                    "numberFormat": "0,00",
+                    "booleanValues": [
+                      "false",
+                      "true"
+                    ],
+                    "imageUrlTemplate": "{{ @ }}",
+                    "imageTitleTemplate": "{{ @ }}",
+                    "imageWidth": "",
+                    "imageHeight": "",
+                    "linkUrlTemplate": "{{ @ }}",
+                    "linkTextTemplate": "{{ @ }}",
+                    "linkTitleTemplate": "{{ @ }}",
+                    "linkOpenInNewTab": true,
+                    "type": "float",
+                    "displayAs": "number",
+                    "visible": true,
+                    "order": 19,
+                    "title": "price_per_sqm",
+                    "allowSearch": false,
+                    "alignContent": "right",
+                    "allowHTML": false,
+                    "highlightLinks": false,
+                    "useMonospaceFont": false,
+                    "preserveWhitespace": false,
+                    "cellFormat": {
+                      "default": {
+                        "foregroundColor": null
+                      },
+                      "rules": [
+                        {
+                          "if": {
+                            "column": "price_per_sqm",
+                            "fn": "<=",
+                            "literal": "1000"
+                          },
+                          "value": {
+                            "foregroundColor": {
+                              "themeColorType": "visualizationColors",
+                              "position": 1
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                ]
+              },
+              "invisibleColumns": [
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "land_number",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 0,
+                  "title": "land_number",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "transaction_id",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 2,
+                  "title": "transaction_id",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "title",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 3,
+                  "title": "title",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "land_owner",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 4,
+                  "title": "land_owner",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "land_location",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 6,
+                  "title": "land_location",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "building_area_sqm",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 8,
+                  "title": "building_area_sqm",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "plot_ratio",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 9,
+                  "title": "plot_ratio",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "publish_time",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 10,
+                  "title": "publish_time",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "land_area_hectare",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 11,
+                  "title": "land_area_hectare",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "land_plot_ratio_desc",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 13,
+                  "title": "land_plot_ratio_desc",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "lease_type",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 14,
+                  "title": "lease_type",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "lease_price",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 15,
+                  "title": "lease_price",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": ",",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "lease_price_paid",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 16,
+                  "title": "lease_price_paid",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false,
+                  "cellFormat": {
+                    "default": {
+                      "foregroundColor": null
+                    },
+                    "rules": [
+                      {
+                        "if": {
+                          "column": "lease_price_paid",
+                          "fn": ">",
+                          "literal": "1000000000"
+                        },
+                        "value": {
+                          "foregroundColor": {
+                            "themeColorType": "visualizationColors",
+                            "position": 1
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "dateTimeFormat": "DD/MM/YYYY",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "lease_date",
+                  "type": "date",
+                  "displayAs": "datetime",
+                  "order": 17,
+                  "title": "lease_date",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "url",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 18,
+                  "title": "url",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "numberFormat": "0.00",
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "premium_rate",
+                  "type": "float",
+                  "displayAs": "number",
+                  "order": 20,
+                  "title": "premium_rate",
+                  "allowSearch": false,
+                  "alignContent": "right",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                },
+                {
+                  "booleanValues": [
+                    "false",
+                    "true"
+                  ],
+                  "imageUrlTemplate": "{{ @ }}",
+                  "imageTitleTemplate": "{{ @ }}",
+                  "imageWidth": "",
+                  "imageHeight": "",
+                  "linkUrlTemplate": "{{ @ }}",
+                  "linkTextTemplate": "{{ @ }}",
+                  "linkTitleTemplate": "{{ @ }}",
+                  "linkOpenInNewTab": true,
+                  "name": "price_per_sql_category",
+                  "type": "string",
+                  "displayAs": "string",
+                  "order": 21,
+                  "title": "price_per_sql_category",
+                  "allowSearch": false,
+                  "alignContent": "left",
+                  "allowHTML": false,
+                  "highlightLinks": false,
+                  "useMonospaceFont": false,
+                  "preserveWhitespace": false
+                }
+              ],
+              "allowHTMLByDefault": false,
+              "itemsPerPage": 25,
+              "paginationSize": "default",
+              "condensed": true,
+              "withRowNumber": false,
+              "frame": {
+                "showTitle": true,
+                "title": "Lowest Price Per Sqm"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 34,
+            "width": 2,
+            "height": 7
+          }
+        },
+        {
+          "widget": {
+            "name": "2b057280",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "lease_year",
+                      "expression": "`lease_year`"
+                    },
+                    {
+                      "name": "median(building_plot_ratio)",
+                      "expression": "MEDIAN(`building_plot_ratio`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`land_type` IN ('customer')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "area",
+              "encodings": {
+                "x": {
+                  "fieldName": "lease_year",
+                  "axis": {
+                    "hideLabels": false,
+                    "hideTitle": true,
+                    "labelAngle": 0
+                  },
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "median(building_plot_ratio)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "住宅类容积率"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 18,
+            "width": 2,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "be2957f3",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "lease_year",
+                      "expression": "`lease_year`"
+                    },
+                    {
+                      "name": "median(building_plot_ratio)",
+                      "expression": "MEDIAN(`building_plot_ratio`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`land_type` IN ('business')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "area",
+              "encodings": {
+                "x": {
+                  "fieldName": "lease_year",
+                  "axis": {
+                    "hideTitle": true,
+                    "labelAngle": 0
+                  },
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "median(building_plot_ratio)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "商业类容积率"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 18,
+            "width": 2,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "fae85ba1",
+            "multilineTextboxSpec": {
+              "lines": [
+                "<span style=\"text-align:center;display:block\"><span style=\"font-size: 18px;\">住宅，商业，工业类容积率</span></span>"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 17,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "559e431c",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "lease_year",
+                      "expression": "`lease_year`"
+                    },
+                    {
+                      "name": "median(building_plot_ratio)",
+                      "expression": "MEDIAN(`building_plot_ratio`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`land_type` IN ('industrial')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "area",
+              "encodings": {
+                "x": {
+                  "fieldName": "lease_year",
+                  "axis": {
+                    "hideTitle": true,
+                    "labelAngle": 0
+                  },
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "median(building_plot_ratio)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "工业类容积率"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 18,
+            "width": 2,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "9b3c7b1a",
+            "multilineTextboxSpec": {
+              "lines": [
+                "<span style=\"text-align:center;display:block\"><span style=\"font-size:18px\">**最贵和最便宜：每平米土地面积单价（元）**</span></span>"
+              ]
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 33,
+            "width": 6,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "a4a3cf86",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "land_use_categories",
+                      "expression": "`land_use_categories`"
+                    },
+                    {
+                      "name": "lease_year",
+                      "expression": "`lease_year`"
+                    },
+                    {
+                      "name": "median(price_per_sqm)",
+                      "expression": "MEDIAN(`price_per_sqm`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`land_type` IN ('industrial')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "lease_year",
+                  "axis": {
+                    "hideTitle": true
+                  },
+                  "displayName": "土地成交年份",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "median(price_per_sqm)",
+                  "displayName": "每平米平均单价（元）",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "land_use_categories",
+                  "legend": {
+                    "position": "bottom"
+                  },
+                  "displayName": "土地性质分类",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Industrial Land"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 25,
+            "width": 2,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "138b771d",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "lease_year",
+                      "expression": "`lease_year`"
+                    },
+                    {
+                      "name": "sum(lease_price_paid_10k)",
+                      "expression": "SUM(`lease_price_paid_10k`)"
+                    },
+                    {
+                      "name": "sum(land_area_sqm)",
+                      "expression": "SUM(`land_area_sqm`)"
+                    },
+                    {
+                      "name": "sum(building_area_sqm)",
+                      "expression": "SUM(`building_area_sqm`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`land_type` IN ('business')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "area",
+              "encodings": {
+                "x": {
+                  "fieldName": "lease_year",
+                  "axis": {
+                    "labelAngle": 0,
+                    "hideLabels": false,
+                    "hideTitle": true
+                  },
+                  "displayName": "土地成交年份",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fields": [
+                    {
+                      "fieldName": "sum(lease_price_paid_10k)",
+                      "displayName": "成交额（万）"
+                    },
+                    {
+                      "fieldName": "sum(land_area_sqm)",
+                      "displayName": "土地成交面积（m²）"
+                    },
+                    {
+                      "fieldName": "sum(building_area_sqm)",
+                      "displayName": "建筑成交面积（m²）"
+                    }
+                  ],
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "legend": {
+                    "hide": false,
+                    "hideTitle": true,
+                    "title": "Legend",
+                    "position": "bottom"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "title": "商业 - Trend of land_area_sqm vs land_lease",
+                "showTitle": true,
+                "showDescription": false,
+                "headerAlignment": "center"
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 1,
+            "width": 2,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "c8381adb",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "lease_year",
+                      "expression": "`lease_year`"
+                    },
+                    {
+                      "name": "sum(lease_price_paid_10k)",
+                      "expression": "SUM(`lease_price_paid_10k`)"
+                    },
+                    {
+                      "name": "sum(land_area_sqm)",
+                      "expression": "SUM(`land_area_sqm`)"
+                    },
+                    {
+                      "name": "sum(building_area_sqm)",
+                      "expression": "SUM(`building_area_sqm`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`land_type` IN ('industrial')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "area",
+              "encodings": {
+                "x": {
+                  "fieldName": "lease_year",
+                  "axis": {
+                    "labelAngle": 0,
+                    "hideLabels": false,
+                    "hideTitle": true
+                  },
+                  "displayName": "土地成交年份",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fields": [
+                    {
+                      "fieldName": "sum(lease_price_paid_10k)",
+                      "displayName": "成交额（万）"
+                    },
+                    {
+                      "fieldName": "sum(land_area_sqm)",
+                      "displayName": "土地成交面积（m²）"
+                    },
+                    {
+                      "fieldName": "sum(building_area_sqm)",
+                      "displayName": "建筑成交面积（m²）"
+                    }
+                  ],
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "legend": {
+                    "hide": false,
+                    "hideTitle": true,
+                    "title": "Legend",
+                    "position": "bottom"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "title": "工业 - Trend of land_area_sqm vs land_lease",
+                "showTitle": true,
+                "showDescription": false,
+                "headerAlignment": "center"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 1,
+            "width": 2,
+            "height": 8
+          }
+        },
+        {
+          "widget": {
+            "name": "8489e042",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "land_use_categories",
+                      "expression": "`land_use_categories`"
+                    },
+                    {
+                      "name": "lease_year",
+                      "expression": "`lease_year`"
+                    },
+                    {
+                      "name": "sum(land_area_sqm)",
+                      "expression": "SUM(`land_area_sqm`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "lease_year",
+                  "axis": {
+                    "labelAngle": 0,
+                    "hideLabels": false,
+                    "hideTitle": true
+                  },
+                  "displayName": "土地成交年份",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(land_area_sqm)",
+                  "displayName": "土地成交（平方米）",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "land_use_categories",
+                  "legend": {
+                    "position": "bottom",
+                    "hideTitle": true
+                  },
+                  "displayName": "土地性质分类",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "natural-order"
+                    }
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "frame": {
+                "title": "Trend of land_area_sqm split by land category",
+                "showTitle": true,
+                "showDescription": false
+              },
+              "mark": {
+                "layout": "group"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 2,
+            "height": 8
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    },
+    {
+      "name": "fecc159e",
+      "displayName": "Global Filters",
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS"
+    },
+    {
+      "name": "ab468104",
+      "displayName": "Detail by Month",
+      "layout": [
+        {
+          "widget": {
+            "name": "9f130fcd",
+            "queries": [
+              {
+                "name": "dashboards/01f0d68827b41bc997bc814fed3816ca/datasets/01f0d68c5ed317acba5c59152730216b_lease_year",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "lease_year",
+                      "expression": "`lease_year`"
+                    },
+                    {
+                      "name": "lease_year_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "lease_year",
+                    "queryName": "dashboards/01f0d68827b41bc997bc814fed3816ca/datasets/01f0d68c5ed317acba5c59152730216b_lease_year"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "成交年份"
+              },
+              "disallowAll": true,
+              "selection": {
+                "defaultSelection": {
+                  "values": {
+                    "dataType": "STRING",
+                    "values": [
+                      {
+                        "value": "2025"
+                      }
+                    ]
+                  }
+                }
+              },
+              "scale": {
+                "type": "categorical",
+                "sort": {
+                  "by": "natural-order-reversed"
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 1,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "56b004cf",
+            "queries": [
+              {
+                "name": "dashboards/01f0d68827b41bc997bc814fed3816ca/datasets/01f0d68c5ed317acba5c59152730216b_land_type",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "land_type",
+                      "expression": "`land_type`"
+                    },
+                    {
+                      "name": "land_type_associativity",
+                      "expression": "COUNT_IF(`associative_filter_predicate_group`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-single-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "land_type",
+                    "queryName": "dashboards/01f0d68827b41bc997bc814fed3816ca/datasets/01f0d68c5ed317acba5c59152730216b_land_type"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "用途分类"
+              },
+              "disallowAll": false
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 0,
+            "width": 1,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "7ee82986",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "land_use_categories",
+                      "expression": "`land_use_categories`"
+                    },
+                    {
+                      "name": "sum(building_area_sqm)",
+                      "expression": "SUM(`building_area_sqm`)"
+                    },
+                    {
+                      "name": "lease_month",
+                      "expression": "`lease_month`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "lease_month",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(building_area_sqm)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "land_use_categories",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true,
+                  "text": {
+                    "fieldName": "sum(building_area_sqm)"
+                  }
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 1,
+            "y": 1,
+            "width": 5,
+            "height": 10
+          }
+        },
+        {
+          "widget": {
+            "name": "a9411d28",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "sum(building_area_sqm)",
+                      "expression": "SUM(`building_area_sqm`)"
+                    },
+                    {
+                      "name": "lease_quarter",
+                      "expression": "`lease_quarter`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "sum(building_area_sqm)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "建筑面积（平方米）"
+                },
+                "color": {
+                  "fieldName": "lease_quarter",
+                  "displayName": "季度",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 11,
+            "width": 2,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "dc3b629f",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "sum(building_area_sqm)",
+                      "expression": "SUM(`building_area_sqm`)"
+                    },
+                    {
+                      "name": "land_use_categories",
+                      "expression": "`land_use_categories`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "sum(building_area_sqm)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "建筑面积（平方米）"
+                },
+                "color": {
+                  "fieldName": "land_use_categories",
+                  "displayName": "土地性质",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 11,
+            "width": 2,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "69909bf9",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "sum(land_area_sqm)",
+                      "expression": "SUM(`land_area_sqm`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(land_area_sqm)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "土地面积 （平方米）",
+                "headerAlignment": "center"
+              }
+            },
+            "specExtensions": {
+              "widgetBorderColor": {
+                "dark": "#1C2C3B"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "82ce9fa2",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "sum(lease_price_paid_10k)",
+                      "expression": "SUM(`lease_price_paid_10k`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(lease_price_paid_10k)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "供地收入（万元）",
+                "headerAlignment": "center"
+              }
+            },
+            "specExtensions": {
+              "widgetBorderColor": {
+                "dark": "#1C2C3B"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 1,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "9609547b",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "sum(building_area_sqm)",
+                      "expression": "SUM(`building_area_sqm`)"
+                    },
+                    {
+                      "name": "lease_month",
+                      "expression": "`lease_month`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "pie",
+              "encodings": {
+                "angle": {
+                  "fieldName": "sum(building_area_sqm)",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "displayName": "建筑面积（平方米）"
+                },
+                "color": {
+                  "fieldName": "lease_month",
+                  "displayName": "月份",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 2,
+            "y": 11,
+            "width": 2,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "2561448b",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "sum(building_area_sqm)",
+                      "expression": "SUM(`building_area_sqm`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(building_area_sqm)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "建筑面积 （平方米）",
+                "headerAlignment": "center"
+              }
+            },
+            "specExtensions": {
+              "widgetBorderColor": {
+                "dark": "#1C2C3B"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "05c48a89",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "avg(building_plot_ratio)",
+                      "expression": "AVG(`building_plot_ratio`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "avg(building_plot_ratio)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "平均容积率",
+                "headerAlignment": "center"
+              }
+            },
+            "specExtensions": {
+              "widgetBorderColor": {
+                "dark": "#1C2C3B"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 7,
+            "width": 1,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "c51aeacd",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "4a0d3c7d",
+                  "fields": [
+                    {
+                      "name": "count(lease_price_paid_10k)",
+                      "expression": "COUNT(`lease_price_paid_10k`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "count(lease_price_paid_10k)"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "showDescription": false,
+                "title": "出让土地块数",
+                "headerAlignment": "center"
+              }
+            },
+            "specExtensions": {
+              "widgetBorderColor": {
+                "dark": "#1C2C3B"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 1,
+            "height": 2
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS"
+    }
+  ],
+  "uiSettings": {
+    "locale": "en-US",
+    "theme": {
+      "canvasBackgroundColor": {
+        "light": "#FAFAFB",
+        "dark": "#1F272D"
+      },
+      "widgetBackgroundColor": {
+        "light": "#FFFFFF",
+        "dark": "#11171C"
+      },
+      "widgetBorderColor": {
+        "dark": "#1A3752"
+      },
+      "fontColor": {
+        "light": "#11171C",
+        "dark": "#E8ECF0"
+      },
+      "selectionColor": {
+        "light": "#2272B4",
+        "dark": "#8ACAFF"
+      },
+      "widgetHeaderAlignment": "CENTER"
+    },
+    "genieSpace": {
+      "isEnabled": false,
+      "enablementMode": "DISABLED"
+    },
+    "applyModeEnabled": false
+  }
+}
