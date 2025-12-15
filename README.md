@@ -1,5 +1,4 @@
-# Dashboard for WuHan Land Market from 2021 to 2025
-- Sourcing from ...
+# Dashboard for WuHan Land Market from 2021...
 <img width="3011" height="1690" alt="image" src="https://github.com/user-attachments/assets/89baafaf-8195-4a2a-994b-1296ce450f9d" />
 
 <img width="3015" height="1336" alt="image" src="https://github.com/user-attachments/assets/dcf553b3-45a8-4ab0-9ff5-7e98206cc51b" />
